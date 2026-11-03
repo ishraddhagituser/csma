@@ -28,114 +28,126 @@ git add .
 git commit -m "First commit"
 git push origin main
 
-
-PROGRAM 2 – Firebase Realtime Database
-=======================================
-
-npm create vite@latest Program2 -- --template react
-cd Program2
-npm install
-npm install firebase
-
-
+//2
 src/firebase.js
--------------
-//program 2
-<html>
-<head>
-    <title>Student Management</title>
-</head>
-<body>
-    Name: <input id="name"><br><br>
-    Roll No: <input id="roll"><br><br>
-    Branch: <input id="br"><br><br>
-    Year: <input id="yr"><br><br>
-    CGPA: <input id="cg"><br><br>
+---------------
+import { initializeApp } from "firebase/app";
+import { getDatabase } from "firebase/database";
 
-    <button id="b1">INSERT</button>
-    <button id="b2">DELETE</button>
-    <button id="b3">UPDATE</button>
-    <button id="b4">DISPLAY</button>
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
 
-    <h3 id="d"></h3>
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-  import { getDatabase, ref, set, get, update, remove } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+const app = initializeApp(firebaseConfig);
 
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyC9GzqlB_vxkOekCCpAppdRMrsQd_9yVBI",
-    authDomain: "practice-7fa4a.firebaseapp.com",
-    databaseURL: "https://practice-7fa4a-default-rtdb.firebaseio.com",
-    projectId: "practice-7fa4a",
-    storageBucket: "practice-7fa4a.firebasestorage.app",
-    messagingSenderId: "648749756693",
-    appId: "1:648749756693:web:34aac063cb3467332bb91c"
-  };
+export const db = getDatabase(app);
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
 
- ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  
-const db = getDatabase(app);
-function data() {
-    return {
-        name: document.getElementById("name").value,
-        branch: document.getElementById("br").value,
-        year: document.getElementById("yr").value,
-        cgpa: document.getElementById("cg").value
-    };
-}
-function path() {
-    return ref(db, "Student/" + document.getElementById("roll").value);
-}
-b1.onclick = () => set(path(), data()).then(() => alert("Inserted"));
-b2.onclick = () => remove(path()).then(() => alert("Deleted"));
-b3.onclick = () => update(path(), data()).then(() => alert("Updated"));
-b4.onclick = () => get(path()).then(s => {
-    if (s.exists()) {
-        let x = s.val();
-        d.innerHTML = "Name: " + x.name +
-            "<br>Branch: " + x.branch +
-            "<br>Year: " + x.year +
-            "<br>CGPA: " + x.cgpa;
-    } else {
-        d.innerHTML = "No data found";
+src/App.jsx
+--------
+import React, { useEffect, useState } from "react";
+import { db } from "./firebase";
+import {
+    ref, push, onValue, remove, update
+} from "firebase/database";
+
+function App() {
+    const [name, setName] = useState("");
+    const [marks, setMarks] = useState("");
+    const [students, setStudents] = useState([]);
+
+    useEffect(() => {
+        const studentRef = ref(db, "students");
+
+        const unsubscribe = onValue(studentRef, (snapshot) => {
+            const data = snapshot.val() || {};
+
+            const list = Object.entries(data).map(
+                ([id, value]) => ({ id, ...value })
+            );
+
+            setStudents(list);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    function addStudent(e) {
+        e.preventDefault();
+
+        push(ref(db, "students"), {
+            name: name,
+            marks: Number(marks)
+        });
+
+        setName("");
+        setMarks("");
     }
-});
-</script>
-</body>
-</html>//4&5
-const express = require('express');
-const app = express();
-app.use(express.json());
-let students = [{ id: 1, name: "Rahul" }];
-// CREATE
-app.post('/students', (req, res) => {
-    students.push(req.body);
-    res.send("Student Added");
-});
-// READ
-app.get('/students', (req, res) => {
-    res.json(students);
-});
-// UPDATE
-app.put('/students/:id', (req, res) => {
-    let s = students.find(x => x.id == req.params.id);
-    if (s) Object.assign(s, req.body);
-    res.send("Student Updated");
-});
-// DELETE
-app.delete('/students/:id', (req, res) => {
-    students = students.filter(x => x.id != req.params.id);
-    res.send("Student Deleted");
-});
-app.listen(3000, () => console.log("Server running on port 3000"));
+
+    function deleteStudent(id) {
+        remove(ref(db, "students/" + id));
+    }
+
+    function updateStudent(student) {
+        const newName = prompt("Enter new name", student.name);
+
+        if (newName) {
+            update(ref(db, "students/" + student.id), {
+                name: newName
+            });
+        }
+    }
+
+    return (
+        <div>
+            <h2>Student Management System</h2>
+
+            <form onSubmit={addStudent}>
+                <input
+                    placeholder="Enter Name"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    required
+                />
+
+                <input
+                    type="number"
+                    placeholder="Enter Marks"
+                    value={marks}
+                    onChange={e => setMarks(e.target.value)}
+                    required
+                />
+
+                <button type="submit">Add Student</button>
+            </form>
+
+            <h3>Student Details</h3>
+
+            {students.map(s => (
+                <p key={s.id}>
+                    {s.name} - {s.marks}
+
+                    <button onClick={() => updateStudent(s)}>
+                        Update
+                    </button>
+
+                    <button onClick={() => deleteStudent(s.id)}>
+                        Delete
+                    </button>
+                </p>
+            ))}
+        </div>
+    );
+}
+
+export default App;
+
 
 
 3
